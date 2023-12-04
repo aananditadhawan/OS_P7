@@ -1,0 +1,95 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+struct Mapping {
+    char *name;
+    int value;
+};
+
+// Assume a simple log structure for illustration
+struct LogEntry {
+    int n;
+    int dir; // 0 for file, 1 for directory
+    char *text; // if a file
+    struct Mapping *data;
+};
+
+struct Superblock {
+    struct LogEntry *logs;
+    int size;
+};
+
+void initializeSuperblock(struct Superblock *superblock) {
+    // Initialize the size
+    superblock->size = 0;
+
+    // Start with a null pointer for logs
+    superblock->logs = NULL;
+}
+
+void addLogEntry(struct Superblock *superblock, struct LogEntry *newEntry) {
+    // Allocate memory for a new log entry
+    struct LogEntry *newLog = (struct LogEntry *)malloc(sizeof(struct LogEntry));
+    if (newLog == NULL) {
+        perror("Error allocating memory for new log entry");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the data from the provided entry
+    *newLog = *newEntry;
+
+    // Resize the array of log entry pointers
+    superblock->logs = (struct LogEntry **)realloc(superblock->logs, (superblock->size + 1) * sizeof(struct LogEntry *));
+    if (superblock->logs == NULL) {
+        perror("Error reallocating memory for logs");
+        exit(EXIT_FAILURE);
+    }
+
+    // Add the pointer to the new log entry to the array
+    superblock->logs[superblock->size++] = newLog;
+}
+
+int main(int argc, char *argv[]) {
+    // Check if the correct number of arguments is provided
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <disk_path>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    const char *disk_path = argv[1];
+
+    // Open the file in binary read-write mode
+    FILE *file = fopen(disk_path, "wb+");
+    if (file == NULL) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    struct Superblock superblock;
+
+    initializeSuperblock(&superblock);
+
+    struct LogEntry initialEntry = { 0, 1, NULL, NULL };
+    
+    addLogEntry(&superblock, &initialEntry);
+
+    struct Mapping map;
+
+    map->name = "file";
+    map->value = 0;
+
+    struct LogEntry entry1 = { 0, 1, NULL, map};
+    struct LogEntry entry2 = { 3, 1, "Dir1", NULL};
+
+    addLogEntry(&superblock, &entry1);
+    addLogEntry(&superblock, &entry2);
+
+    //freeSuperblock(&superblock);
+
+    printf("Filesystem initialized successfully.\n");
+
+    return 0;
+}
