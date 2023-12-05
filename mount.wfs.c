@@ -10,12 +10,17 @@
 struct wfs_sb superblock;
 int disk_fd;
 
+// the following is already there in fuse.h
+//typedef int (*fuse_fill_dir_t) (void *buf, const char *name, const struct stat *stbuf, off_t off);
+
 static int wfs_getattr(const char *path, struct stat *stbuf) {
     // Implement the getattr FUSE callback
     // This function should fill in the attributes of the file/directory specified by the path
     // Use the superblock and disk_fd global variables
 
-    return 0;  // Return 0 on success
+    int res = lstat(path, stbuf);
+
+    return res;  // Return 0 on success
 }
 
 static int wfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
@@ -23,6 +28,11 @@ static int wfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
     // This function should fill in the directory entries using the filler function
     // Use the superblock and disk_fd global variables
 
+    printf( "--> Getting The List of Files of %s\n", path );
+	
+	filler(buf, ".", NULL, 0 ); // Current Directory
+	filler(buf, "..", NULL, 0 ); // Parent Directory
+	
     return 0;  // Return 0 on success
 }
 
