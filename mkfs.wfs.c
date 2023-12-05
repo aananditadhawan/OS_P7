@@ -11,6 +11,11 @@ void initializeSuperblock() {
     superblock = (struct wfs_sb *) malloc(sizeof(struct wfs_sb));
     superblock->magic = WFS_MAGIC;
     superblock->head = sizeof(struct wfs_sb);
+
+    struct wfs_log_entry *root = (struct wfs_log_entry *) malloc(sizeof(struct wfs_inode));
+    root->inode.inode_number = 0;
+
+    superblock->head += sizeof(root);
 }
 
 void writeSuperblock(int fd) {
@@ -75,6 +80,7 @@ int main(int argc, char *argv[]) {
     // Write the superblock to the file
     writeSuperblock(fd);
 
+    // malloc cant have size of struct log entry 
     struct wfs_log_entry *file_log_entry = (struct wfs_log_entry *)malloc(sizeof(struct wfs_inode) + bytesRead); // malloc this
     
     //struct wfs_log_entry file_log_entry;
