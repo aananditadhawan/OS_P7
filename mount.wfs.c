@@ -5,6 +5,8 @@
 #include <string.h>
 #include "wfs.h"
 #include <unistd.h> 
+#include <errno.h>
+#include <dirent.h>
 
 // Declare global variables for the superblock and file descriptors
 struct wfs_sb superblock;
@@ -53,7 +55,7 @@ static int wfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 */
 }
 
-static int wfs_write(const char* path, char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+static int wfs_write(const char* path, const char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
   int fd;
   int res;
 
