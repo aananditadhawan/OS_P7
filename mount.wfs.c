@@ -139,15 +139,27 @@ static struct fuse_operations wfs_operations = {
 
 int main(int argc, char *argv[]) {
     // Check if the correct number of arguments is provided
-    if (argc < 4) {
+    // if (argc < 4) {
+    //     fprintf(stderr, "Usage: %s [FUSE options] disk_path mount_point\n", argv[0]);
+    //     exit(EXIT_FAILURE);
+    // }
+
+    if (argc < 3) {
         fprintf(stderr, "Usage: %s [FUSE options] disk_path mount_point\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    // Open the file in binary read-only mode
-    disk_fd = open(argv[2], O_RDONLY);
+    // Identify the disk path and mount point based on the provided arguments
+    const char *disk_path = argv[argc - 2];
+    //const char *mount_point = argv[argc - 1];
+
+    //printf("argument 3 is %s", argv[3]);
+
+    //const char *disk_path = argv[3];
+
+    int disk_fd = open(disk_path, O_RDWR, 0644);
     if (disk_fd == -1) {
-        perror("Error opening file");
+        perror("rom mount main accessing the disk : Error opening file");
         exit(EXIT_FAILURE);
     }
 
@@ -161,10 +173,14 @@ int main(int argc, char *argv[]) {
     // Close the file
     close(disk_fd);
 
-    // Pass [FUSE options] along with the mount_point to fuse_main as argv
-    argv[2] = argv[3];
-    argv[3] = NULL;  // Null-terminate the new argv
+    // // Pass [FUSE options] along with the mount_point to fuse_main as argv
+    // argv[2] = argv[3];
+    // argv[3] = NULL;  // Null-terminate the new argv
+
+    argv[argc-2] = argv[argc-1];
+    argv[argc-1] = NULL;
+    argc--;
 
     // Mount the file system using FUSE
-    return fuse_main(argc - 2, argv, &wfs_operations, NULL);
+    return fuse_main(argc, argv, &wfs_operations, NULL);
 }
