@@ -7,11 +7,15 @@
 #include <unistd.h> 
 #include <errno.h>
 #include <dirent.h>
+#include <sys/mman.h>
 
 // Declare global variables for the superblock and file descriptors
 struct wfs_sb superblock;
 int disk_fd;
 
+static const char *dp = NULL;
+static char *md = NULL;
+int cur_inode = 0;
 // the following is already there in fuse.h
 //typedef int (*fuse_fill_dir_t) (void *buf, const char *name, const struct stat *stbuf, off_t off);
 
@@ -137,34 +141,120 @@ static struct fuse_operations wfs_operations = {
 
 };
 
-int main(int argc, char *argv[]) {
-    // Check if the correct number of arguments is provided
+static struct wfs_inode *get_inode(int inode_num) {
+  char *pos = sizeof(struct wfs_sb) + md;
+  struct wfs_inode *last_ent = NULL;
+
+  while (pos < md + ((struct wfs_sb *)md)->head) {
+    struct wfs_log_entry *cur_ent = (struct wfs_log_entry *)pos;
+
+    if (cur_ent->inode.inode_number == inode_num && cur_ent->inode.deleted == 0) {
+      last_ent = &(cur_ent->inode);
+    }
+
+    pos += sizeof(struct wfs_inode) + cur_ent->inode.size;
+  }
+
+  return last_ent;
+}
+
+static int get_inode_num(const char *path) {
+  //int inode = 0;
+  int flag = 1;
+  char cpy[strlen(path)+1];
+  strcpy(cpy, path);
+  char *curpath = strtok(cpy, "/");
+
+  while (curpath != NULL) {
+    flag = 0;
+    struct wfs_log_entry *last_ent;
+
+    char *pos = md + sizeof(struct wfs_sb);
+
+    while (pos < md + ((struct wfs_sb *)md)->head) {
+      struct wfs_log_entry *cur_ent = (struct wfs_log_entry *)
+	      pos;
+
+      if (S_ISDIR(cur_ent->inode.mode) && cur_ent->inode.inode_number == cur_inode && cur_ent->inode.deleted == 0) {
+        last_ent = cur_ent;
+      }
+
+      pos += sizeof(struct wfs_inode) + cur_ent->inode.size;
+    }
+
+    struct wfs_dentry *dir = (struct wfs_dentry *)last_ent->data;
+
+    int offset = 0;
+
+    while (offset < last_ent->inode.size) {
+      if (strcmp(dir->name, curpath) == 0) {
+        cur_inode = dir->inode_number;
+        flag = 1;
+	break;
+      }
+
+      dir++;
+      offset += sizeof(struct wfs_dentry);
+    }
+
+    curpath = strtok(NULL, "/");
+  }
+  if (flag == 0) {
+    return -1;
+  }
+
+  return cur_inode;
+}
+
+int main(int argc, char *argv[]) {	
+	// Check if the correct number of arguments is provided
     if (argc < 4) {
         fprintf(stderr, "Usage: %s [FUSE options] disk_path mount_point\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
     // Open the file in binary read-only mode
-    disk_fd = open(argv[2], O_RDONLY);
+    dp = realpath(argv[2], NULL);
+    int disk_fd = open(dp, O_RDONLY);
     if (disk_fd == -1) {
         perror("Error opening file");
         exit(EXIT_FAILURE);
     }
 
+    struct stat sb; 
+    int flag = fstat(disk_fd, &sb);
+    if (flag == -1) {
+      perror("Error reading superblock");
+      close(disk_fd);
+      exit(EXIT_FAILURE);
+    }
+
+    md = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, disk_fd, 0);
+    if (md == MAP_FAILED) {
+        perror("Error mapping file");
+        close(disk_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    close(disk_fd);
+
+
     // Read the superblock from the file
-    if (read(disk_fd, &superblock, sizeof(struct wfs_sb)) == -1) {
+    /*if (read(disk_fd, &superblock, sizeof(struct wfs_sb)) == -1) {
         perror("Error reading superblock");
         close(disk_fd);
         exit(EXIT_FAILURE);
     }
 
     // Close the file
-    close(disk_fd);
+    close(disk_fd);*/
 
     // Pass [FUSE options] along with the mount_point to fuse_main as argv
     argv[2] = argv[3];
     argv[3] = NULL;  // Null-terminate the new argv
-
+    int fuse = fuse_main(argc, argv, &wfs_operations, NULL);
     // Mount the file system using FUSE
-    return fuse_main(argc - 2, argv, &wfs_operations, NULL);
+    
+    munmap(md, sb.st_size);
+    return fuse;
 }
