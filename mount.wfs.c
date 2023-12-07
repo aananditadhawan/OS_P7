@@ -141,6 +141,7 @@ static struct fuse_operations wfs_operations = {
 
 };
 
+<<<<<<< HEAD
 static struct wfs_inode *get_inode(int inode_num) {
   char *pos = sizeof(struct wfs_sb) + md;
   struct wfs_inode *last_ent = NULL;
@@ -209,15 +210,37 @@ static int get_inode_num(const char *path) {
 int main(int argc, char *argv[]) {	
 	// Check if the correct number of arguments is provided
     if (argc < 4) {
+=======
+int main(int argc, char *argv[]) {
+    // Check if the correct number of arguments is provided
+    // if (argc < 4) {
+    //     fprintf(stderr, "Usage: %s [FUSE options] disk_path mount_point\n", argv[0]);
+    //     exit(EXIT_FAILURE);
+    // }
+
+    if (argc < 3) {
+>>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
         fprintf(stderr, "Usage: %s [FUSE options] disk_path mount_point\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
+<<<<<<< HEAD
     // Open the file in binary read-only mode
     dp = realpath(argv[2], NULL);
     int disk_fd = open(dp, O_RDONLY);
+=======
+    // Identify the disk path and mount point based on the provided arguments
+    const char *disk_path = argv[argc - 2];
+    //const char *mount_point = argv[argc - 1];
+
+    //printf("argument 3 is %s", argv[3]);
+
+    //const char *disk_path = argv[3];
+
+    int disk_fd = open(disk_path, O_RDWR, 0644);
+>>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
     if (disk_fd == -1) {
-        perror("Error opening file");
+        perror("rom mount main accessing the disk : Error opening file");
         exit(EXIT_FAILURE);
     }
 
@@ -249,6 +272,7 @@ int main(int argc, char *argv[]) {
     // Close the file
     close(disk_fd);*/
 
+<<<<<<< HEAD
     // Pass [FUSE options] along with the mount_point to fuse_main as argv
     argv[2] = argv[3];
     argv[3] = NULL;  // Null-terminate the new argv
@@ -257,4 +281,16 @@ int main(int argc, char *argv[]) {
     
     munmap(md, sb.st_size);
     return fuse;
+=======
+    // // Pass [FUSE options] along with the mount_point to fuse_main as argv
+    // argv[2] = argv[3];
+    // argv[3] = NULL;  // Null-terminate the new argv
+
+    argv[argc-2] = argv[argc-1];
+    argv[argc-1] = NULL;
+    argc--;
+
+    // Mount the file system using FUSE
+    return fuse_main(argc, argv, &wfs_operations, NULL);
+>>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
 }

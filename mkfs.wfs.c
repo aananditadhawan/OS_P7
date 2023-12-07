@@ -65,7 +65,8 @@ int main(int argc, char *argv[]) {
     const char *disk_path = argv[1];
 
     // Open the file in binary read-write mode, create it if it doesn't exist
-    int fd = open(disk_path, O_CREAT | O_RDWR, 0644);
+    //int fd = open(disk_path, O_CREAT | O_RDWR, 0644);
+    int fd = open(disk_path, O_RDWR, 0644);
     if (fd == -1) {
         perror("Error opening file");
         exit(EXIT_FAILURE);
