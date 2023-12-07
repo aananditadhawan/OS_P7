@@ -19,14 +19,93 @@ int cur_inode = 0;
 // the following is already there in fuse.h
 //typedef int (*fuse_fill_dir_t) (void *buf, const char *name, const struct stat *stbuf, off_t off);
 
+static int get_inode_num(const char *path) {
+  //int inode = 0;
+  int flag = 1;
+  char cpy[strlen(path)+1];
+  strcpy(cpy, path);
+  char *curpath = strtok(cpy, "/");
+
+  while (curpath != NULL) {
+    flag = 0;
+    struct wfs_log_entry *last_ent;
+
+    char *pos = md + sizeof(struct wfs_sb);
+
+    while (pos < md + ((struct wfs_sb *)md)->head) {
+      struct wfs_log_entry *cur_ent = (struct wfs_log_entry *)
+              pos;
+
+      if (S_ISDIR(cur_ent->inode.mode) && cur_ent->inode.inode_number == cur_inode && cur_ent->inode.deleted == 0) {
+        last_ent = cur_ent;
+      }
+
+      pos += sizeof(struct wfs_inode) + cur_ent->inode.size;
+    }
+
+    struct wfs_dentry *dir = (struct wfs_dentry *)last_ent->data;
+
+    int offset = 0;
+
+    while (offset < last_ent->inode.size) {
+      if (strcmp(dir->name, curpath) == 0) {
+        cur_inode = dir->inode_number;
+        flag = 1;
+        break;
+      }
+
+      dir++;
+      offset += sizeof(struct wfs_dentry);
+    }
+
+    curpath = strtok(NULL, "/");
+  }
+  if (flag == 0) {
+    return -1;
+  }
+
+  return cur_inode;
+}
+
+static struct wfs_inode *get_inode(int inode_num) {
+  char *pos = sizeof(struct wfs_sb) + md;
+  struct wfs_inode *last_ent = NULL;
+
+  while (pos < md + ((struct wfs_sb *)md)->head) {
+    struct wfs_log_entry *cur_ent = (struct wfs_log_entry *)pos;
+
+    if (cur_ent->inode.inode_number == inode_num && cur_ent->inode.deleted == 0) {
+      last_ent = &(cur_ent->inode);
+    }
+
+    pos += sizeof(struct wfs_inode) + cur_ent->inode.size;
+  }
+
+  return last_ent;
+}
+
 static int wfs_getattr(const char *path, struct stat *stbuf) {
-  int res;
+  int inode_num = get_inode_num(path);
 
-  res = lstat(path, stbuf);
-  if (res == -1)
-    return -errno;
+  if (inode_num == -1) {
+    return -ENOENT; 
+  }
 
-  return 0;
+  struct wfs_inode *inode = get_inode(inode_num);
+
+  if (inode == NULL) {
+   return -ENOENT; 
+  }
+
+  stbuf->st_uid = inode->uid;
+  stbuf->st_gid = inode->gid;
+  stbuf->st_atime = inode->atime;
+  stbuf->st_mtime = inode->mtime;
+  stbuf->st_mode = inode->mode;
+  stbuf->st_nlink = inode->links;
+  stbuf->st_size = inode->size;
+
+  return 0; 
 }
 
 static int wfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
@@ -141,76 +220,10 @@ static struct fuse_operations wfs_operations = {
 
 };
 
-<<<<<<< HEAD
-static struct wfs_inode *get_inode(int inode_num) {
-  char *pos = sizeof(struct wfs_sb) + md;
-  struct wfs_inode *last_ent = NULL;
-
-  while (pos < md + ((struct wfs_sb *)md)->head) {
-    struct wfs_log_entry *cur_ent = (struct wfs_log_entry *)pos;
-
-    if (cur_ent->inode.inode_number == inode_num && cur_ent->inode.deleted == 0) {
-      last_ent = &(cur_ent->inode);
-    }
-
-    pos += sizeof(struct wfs_inode) + cur_ent->inode.size;
-  }
-
-  return last_ent;
-}
-
-static int get_inode_num(const char *path) {
-  //int inode = 0;
-  int flag = 1;
-  char cpy[strlen(path)+1];
-  strcpy(cpy, path);
-  char *curpath = strtok(cpy, "/");
-
-  while (curpath != NULL) {
-    flag = 0;
-    struct wfs_log_entry *last_ent;
-
-    char *pos = md + sizeof(struct wfs_sb);
-
-    while (pos < md + ((struct wfs_sb *)md)->head) {
-      struct wfs_log_entry *cur_ent = (struct wfs_log_entry *)
-	      pos;
-
-      if (S_ISDIR(cur_ent->inode.mode) && cur_ent->inode.inode_number == cur_inode && cur_ent->inode.deleted == 0) {
-        last_ent = cur_ent;
-      }
-
-      pos += sizeof(struct wfs_inode) + cur_ent->inode.size;
-    }
-
-    struct wfs_dentry *dir = (struct wfs_dentry *)last_ent->data;
-
-    int offset = 0;
-
-    while (offset < last_ent->inode.size) {
-      if (strcmp(dir->name, curpath) == 0) {
-        cur_inode = dir->inode_number;
-        flag = 1;
-	break;
-      }
-
-      dir++;
-      offset += sizeof(struct wfs_dentry);
-    }
-
-    curpath = strtok(NULL, "/");
-  }
-  if (flag == 0) {
-    return -1;
-  }
-
-  return cur_inode;
-}
-
-int main(int argc, char *argv[]) {	
+//int main(int argc, char *argv[]) {	
 	// Check if the correct number of arguments is provided
-    if (argc < 4) {
-=======
+  //  if (argc < 4) {
+//=======
 int main(int argc, char *argv[]) {
     // Check if the correct number of arguments is provided
     // if (argc < 4) {
@@ -219,26 +232,26 @@ int main(int argc, char *argv[]) {
     // }
 
     if (argc < 3) {
->>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
+//>>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
         fprintf(stderr, "Usage: %s [FUSE options] disk_path mount_point\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
     // Open the file in binary read-only mode
     dp = realpath(argv[2], NULL);
     int disk_fd = open(dp, O_RDONLY);
-=======
+//=======
     // Identify the disk path and mount point based on the provided arguments
-    const char *disk_path = argv[argc - 2];
+    //const char *disk_path = argv[argc - 2];
     //const char *mount_point = argv[argc - 1];
 
     //printf("argument 3 is %s", argv[3]);
 
     //const char *disk_path = argv[3];
 
-    int disk_fd = open(disk_path, O_RDWR, 0644);
->>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
+    //int disk_fd = open(disk_path, O_RDWR, 0644);
+//>>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
     if (disk_fd == -1) {
         perror("rom mount main accessing the disk : Error opening file");
         exit(EXIT_FAILURE);
@@ -272,7 +285,7 @@ int main(int argc, char *argv[]) {
     // Close the file
     close(disk_fd);*/
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
     // Pass [FUSE options] along with the mount_point to fuse_main as argv
     argv[2] = argv[3];
     argv[3] = NULL;  // Null-terminate the new argv
@@ -281,7 +294,7 @@ int main(int argc, char *argv[]) {
     
     munmap(md, sb.st_size);
     return fuse;
-=======
+//=======
     // // Pass [FUSE options] along with the mount_point to fuse_main as argv
     // argv[2] = argv[3];
     // argv[3] = NULL;  // Null-terminate the new argv
@@ -292,5 +305,5 @@ int main(int argc, char *argv[]) {
 
     // Mount the file system using FUSE
     return fuse_main(argc, argv, &wfs_operations, NULL);
->>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
+//>>>>>>> 33ebe45e79a4375530331b53dbeaca1614bf5e18
 }
