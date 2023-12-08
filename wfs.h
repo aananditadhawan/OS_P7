@@ -36,4 +36,11 @@ struct wfs_log_entry {
     char data[];
 };
 
+struct wfs_map {
+    int fd;
+    size_t len;
+    struct wfs_sb *disk;
+    uint32_t head;
+};
+
 #endif
